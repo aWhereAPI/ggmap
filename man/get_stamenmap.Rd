@@ -10,7 +10,7 @@ get_stamenmap(bbox = c(left = -95.80204, bottom = 29.38048, right = -94.92313,
   "toner-background", "toner-hybrid", "toner-labels", "toner-lines",
   "toner-lite", "watercolor"), crop = TRUE, messaging = FALSE,
   urlonly = FALSE, color = c("color", "bw"), force = FALSE,
-  where = tempdir(), ...)
+  where = tempdir(), doOffline = FALSE, tileDir = "./mapTiles", ...)
 }
 \arguments{
 \item{bbox}{a bounding box in the format c(lowerleftlon,
@@ -37,6 +37,11 @@ up?}
 
 \item{where}{where should the file drawer be located (without
 terminating "/")}
+
+\item{doOffline}{Should map tiles be loaded from local directory.
+Must be downloaded first}
+
+\item{tileDir}{Where are local tiles stored.  Only relevant if doOffline == TRUE}
 
 \item{...}{...}
 }

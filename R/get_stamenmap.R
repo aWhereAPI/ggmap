@@ -21,6 +21,9 @@
 #'   up?
 #' @param where where should the file drawer be located (without
 #'   terminating "/")
+#' @param doOffline Should map tiles be loaded from local directory.  
+#'    Must be downloaded first
+#' @param tileDir Where are local tiles stored.  Only relevant if doOffline == TRUE
 #' @param ... ...
 #' @return a ggmap object (a classed raster object with a bounding
 #'   box attribute)
@@ -210,14 +213,33 @@
 #'
 #' } # end dontrun
 #'
-get_stamenmap <- function(
-  bbox = c(left = -95.80204, bottom = 29.38048, right = -94.92313, top = 30.14344),
-  zoom = 10, maptype = c("terrain","terrain-background","terrain-labels",
-    "terrain-lines", "toner", "toner-2010", "toner-2011", "toner-background",
-    "toner-hybrid", "toner-labels", "toner-lines", "toner-lite", "watercolor"),
-  crop = TRUE, messaging = FALSE, urlonly = FALSE, color = c("color","bw"), force = FALSE,
-  where = tempdir(), ...
-){
+get_stamenmap <- function(bbox = c(left = -95.80204
+                                   ,bottom = 29.38048
+                                   ,right = -94.92313
+                                   ,top = 30.14344)
+                          ,zoom = 10
+                          ,maptype = c("terrain"
+                                       ,"terrain-background"
+                                       ,"terrain-labels"
+                                       ,"terrain-lines"
+                                       ,"toner"
+                                       ,"toner-2010"
+                                       ,"toner-2011"
+                                       ,"toner-background"
+                                       ,"toner-hybrid"
+                                       ,"toner-labels"
+                                       ,"toner-lines"
+                                       ,"toner-lite"
+                                       ,"watercolor")
+                          ,crop = TRUE
+                          ,messaging = FALSE
+                          ,urlonly = FALSE
+                          ,color = c("color","bw")
+                          ,force = FALSE
+                          ,where = tempdir()
+                          ,doOffline = FALSE
+                          ,tileDir = './mapTiles'
+                          , ...){
 
   # enumerate argument checking (added in lieu of checkargs function)
   args <- as.list(match.call(expand.dots = TRUE)[-1])
@@ -294,15 +316,36 @@ get_stamenmap <- function(
   if(urlonly) return(urls)
 
 
-  # make list of tiles
-  listOfTiles <- lapply(split(tilesNeeded, 1:nrow(tilesNeeded)), function(v){
-    v <- as.numeric(v)
-    get_stamenmap_tile(maptype, zoom, v[1], v[2], color, force = force, messaging = messaging)
-  })
+  if (doOffline == FALSE) {
+    # make list of tiles
+    listOfTiles <- lapply(split(tilesNeeded, 1:nrow(tilesNeeded)), function(v){
+      v <- as.numeric(v)
+      ggmap:::get_stamenmap_tile(maptype
+                                 ,zoom
+                                 ,v[1]
+                                 ,v[2]
+                                 ,color
+                                 ,force = force
+                                 ,messaging = messaging)
+    })
+  } else {
+    listOfTiles <- lapply(split(tilesNeeded, 1:nrow(tilesNeeded)), function(v){
+      v <- as.numeric(v)
+      get_stamenmap_tile_offline(maptype
+                                 ,zoom
+                                 ,v[1]
+                                 ,v[2]
+                                 ,color
+                                 ,force = force
+                                 ,messaging = messaging
+                                 ,tileDir = tileDir)
+    })
+  }
+ 
 
 
   # stitch tiles together
-  map <- stitch(listOfTiles)
+  map <- ggmap:::stitch(listOfTiles)
 
 
   # format map and return if not cropping
@@ -367,21 +410,6 @@ get_stamenmap <- function(
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 get_stamenmap_checkargs <- function(args){
   eargs <- lapply(args, eval)
   argsgiven <- names(args)
@@ -419,17 +447,6 @@ get_stamenmap_checkargs <- function(args){
 
   }) # end with
 }
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -539,7 +556,97 @@ get_stamenmap_tile <- function(maptype, zoom, x, y, color, force = FALSE, messag
   tile
 }
 
+get_stamenmap_tile_offline <- function(maptype
+                                       ,zoom
+                                       ,x
+                                       ,y
+                                       ,color
+                                       ,force = FALSE
+                                       ,messaging = TRUE
+                                       ,where = tempdir()
+                                       ,tileDir = './mapTiles'){
+  
+  # check arguments
+  is.wholenumber <- function (x, tol = .Machine$double.eps^0.5) abs(x - round(x)) < tol
+  
+  stopifnot(is.wholenumber(zoom) || !(zoom %in% 1:20))
+  stopifnot(is.wholenumber(x) || !(0 <= x && x < 2^zoom))
+  stopifnot(is.wholenumber(y) || !(0 <= y && y < 2^zoom))
+  
+  # format url http://tile.stamen.com/[maptype]/[zoom]/[x]/[y].jpg
+  if(maptype %in% c("watercolor")){
+    filetype <- "jpg"
+  } else {
+    filetype <- "png"
+  }
+  #url <- sprintf("http://tile.stamen.com/%s/%i/%i/%i.%s", maptype, zoom, x, y, filetype)
+  url <- paste0(tileDir,'/stamen/',maptype,'/',zoom,'_',x,'_',y,'.',filetype)
+  
+  # read in
+  if (file.exists(url) == TRUE) {
+    fileExists <- TRUE
+    if(filetype == "jpg"){
+      tile <- try(readJPEG(url),silent = TRUE)
+    } else {
+      tile <- try(png::readPNG(url),silent = TRUE)
+    }
+  }  else {
+    fileExists <- FALSE
+    cat(paste0('Tile ',zoom,'/',x,'/',y,' not present.  Tile needs to be downloaded before used in offline mode.  Contact aWhere support\n'))
+  }
+  
+ 
+  if (class(tile) =="try-error" | fileExists == FALSE) {
+    tile <- array(NA, dim = c(256L, 256L))
+  } else {
+    # convert to colors
+    # toner-lines treated differently for alpha
+    if(maptype %in% c("toner-hybrid", "toner-labels", "toner-lines",
+                      "terrain-labels", "terrain-lines")){
+      if(color == "color") {
+        tile <- t(apply(tile, 1:2, function(x) rgb(x[1], x[2], x[3], x[4])))
+      } else {  # color == "bw" (all these are black and white naturally)
+        tile <- t(apply(tile, 1:2, function(x) rgb(x[1], x[2], x[3], x[4])))
+      }
+    } else {
+      if(color == "color") {
+        tile <- t(apply(tile, 2, rgb))
+      } else {  # color == "bw"
+        tiled <- dim(tile)
+        tile <- gray(.30 * tile[,,1] + .59 * tile[,,2] + .11 * tile[,,3])
+        dim(tile) <- tiled[1:2]
+        tile <- t(tile)
+      }
+    }
+  }
+  
+  
+  # determine bbox of map. note : not the same as the argument bounding box -
+  # the map is only a covering of the bounding box extent the idea is to get
+  # the lower left tile and the upper right tile and compute their bounding boxes
+  # tiles are referenced by top left of tile, starting at 0,0
+  # see http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
+  lonlat_upperleft <- XY2LonLat(x, y, zoom)
+  lonlat_lowerright <- XY2LonLat(x, y, zoom, 255, 255)
+  bbox <- c(
+    left = lonlat_upperleft$lon,
+    bottom = lonlat_lowerright$lat,
+    right = lonlat_lowerright$lon,
+    top = lonlat_upperleft$lat
+  )
+  bb <- data.frame(
+    ll.lat = unname(bbox["bottom"]),
+    ll.lon = unname(bbox["left"]),
+    ur.lat = unname(bbox["top"]),
+    ur.lon = unname(bbox["right"])
+  )
+  
+  # format
+  class(tile) <- c("ggmap", "raster")
+  attr(tile, "bb") <- bb
 
+  return(tile)
+}
 
 
 

@@ -2,6 +2,7 @@
 
 S3method(print,ggmap)
 S3method(print,ggmap_credentials)
+export(GetMapTiles)
 export(LonLat2XY)
 export(OSM_scale_lookup)
 export(XY2LonLat)
