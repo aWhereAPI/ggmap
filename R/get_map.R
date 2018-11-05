@@ -32,7 +32,7 @@
 #' @param color color ("color") or black-and-white ("bw")
 #' @param language language for google maps
 #' @param api_key an api key for cloudmade maps
-#' @param doOffline Should map tiles be loaded from local directory.  
+#' @param doOffline Should map tiles be loaded from local directory.
 #'    Must be downloaded first
 #' @param tileDir Where are local tiles stored.  Only relevant if doOffline == TRUE
 #' @return a ggmap object (a classed raster object with a bounding
@@ -93,7 +93,7 @@ get_map <- function(location = c(lon = -95.3632715, lat = 29.7632836)
   if (doOffline == TRUE & !(maptype %in% c('terrain','toner')) & source == 'stamen') {
     stop('Offline Mode only works for Stamen Terrain and Toner maps currently')
   }
-  
+
   # deprecated syntaxes
   args <- as.list(match.call(expand.dots = TRUE)[-1])
   if("verbose" %in% names(args)){
@@ -207,6 +207,13 @@ get_map <- function(location = c(lon = -95.3632715, lat = 29.7632836)
   } else if(zoom == "auto" && location_type != "bbox"){
     zoom = 10
   }
+
+  maxZoomDownloaded <- 13
+
+  if (doOffline == TRUE & zoom > maxZoomDownloaded) {
+    zoom <- maxZoomDownloaded
+  }
+
 
 
   # compute scale when scale = "auto" (only for google/osm)
