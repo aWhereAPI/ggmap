@@ -6,12 +6,13 @@
 \usage{
 get_map(location = c(lon = -95.3632715, lat = 29.7632836), zoom = "auto",
   scale = "auto", maptype = c("terrain", "terrain-background", "satellite",
-  "roadmap", "hybrid", "toner", "watercolor", "terrain-labels", "terrain-lines",
-  "toner-2010", "toner-2011", "toner-background", "toner-hybrid",
-  "toner-labels", "toner-lines", "toner-lite"), source = c("google", "osm",
-  "stamen", "cloudmade"), force = ifelse(source == "google", TRUE, TRUE),
-  messaging = FALSE, urlonly = FALSE, filename = NULL, crop = TRUE,
-  color = c("color", "bw"), language = "en-EN", api_key)
+  "roadmap", "hybrid", , "toner", "watercolor", "terrain-labels",
+  "terrain-lines", "toner-2010", "toner-2011", "toner-background",
+  "toner-hybrid", "toner-labels", "toner-lines", "toner-lite"),
+  source = c("google", "osm", "stamen", "cloudmade"), force = ifelse(source
+  == "google", TRUE, TRUE), messaging = FALSE, urlonly = FALSE,
+  filename = NULL, crop = TRUE, color = c("color", "bw"),
+  language = "en-EN", api_key, doOffline = FALSE, tileDir = "./mapTiles")
 }
 \arguments{
 \item{location}{an address, longitude/latitude pair (in that
@@ -55,6 +56,11 @@ box}
 \item{language}{language for google maps}
 
 \item{api_key}{an api key for cloudmade maps}
+
+\item{doOffline}{Should map tiles be loaded from local directory.
+Must be downloaded first}
+
+\item{tileDir}{Where are local tiles stored.  Only relevant if doOffline == TRUE}
 }
 \value{
 a ggmap object (a classed raster object with a bounding
